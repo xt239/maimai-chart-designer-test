@@ -6,37 +6,21 @@
 <title>谱面谱师识别 · inote → des</title>
 <style>
   :root{
-    /* 配色取自背景图（我ら！ゴミ分別団）：暖橙底 + 棕褐剪影 + 红/绿双角色 */
-    --bg:#150e05;
-    --panel:rgba(40,27,14,.82); --panel2:rgba(56,39,21,.85);
-    --line:rgba(255,182,39,.30);
-    --fg:#FFF3E0; --dim:#C9AC83;
-    --accent:#FFB627; --accent2:#8FD65C;
-    --warn:#FFA62B; --err:#FF6F5E; --gold:#FFD65C;
-    --mono:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2a3240;
+    --fg:#e6edf3; --dim:#8b96a5; --accent:#4f9cf9; --accent2:#7ee787;
+    --warn:#f0883e; --err:#f85149; --mono:ui-monospace,SFMono-Regular,"Cascadia Mono",Consolas,monospace;
   }
   *{box-sizing:border-box}
-  /* 背景图 + 双层遮罩：上面一层暖棕压暗（保证文字对比度 ≥7:1），
-     下面一层轻微暗化让角色主体不至于过曝；两层都随滚动固定 */
-  body{margin:0;color:var(--fg);
-       font:15px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;min-height:100vh;
-       background-color:var(--bg);
-       background-image:
-         linear-gradient(180deg,rgba(22,14,5,.80),rgba(30,19,8,.86)),
-         radial-gradient(120% 80% at 50% 0%,rgba(255,182,39,.10),transparent 60%),
-         url("bg.jpg");
-       background-size:cover,cover,cover;
-       background-position:center,center,center top;
-       background-attachment:fixed,fixed,fixed;
-       background-repeat:no-repeat}
+  body{margin:0;background:linear-gradient(180deg,#0d1117,#0a0e14);color:var(--fg);
+       font:15px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;min-height:100vh}
   .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
   header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
   h1{font-size:21px;margin:0;font-weight:650;letter-spacing:.2px}
   .sub{color:var(--dim);font-size:13px}
   .badge{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);
          color:var(--dim);background:var(--panel)}
-  .badge.rem{color:#0F2410;border-color:#4E8F2E;background:linear-gradient(180deg,#B6EE86,#8FD65C)}
-  .badge.banquet{color:#3A0D08;border-color:#C4483A;background:linear-gradient(180deg,#FFA79A,#FF7A6B)}
+  .badge.rem{color:#c9a0ff;border-color:#5a3d8c;background:#1d1730}
+  .badge.banquet{color:var(--warn);border-color:#6b4423;background:#241a12}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:16px}
   label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;letter-spacing:.3px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
@@ -44,22 +28,21 @@
   input[type=text],select{width:100%;background:var(--panel2);border:1px solid var(--line);
     color:var(--fg);border-radius:8px;padding:10px 12px;font:13px var(--mono);outline:none}
   input[type=text]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,156,249,.15)}
+  input[type=file]{width:100%;background:var(--panel2);border:1px dashed var(--line);
+    color:var(--dim);border-radius:8px;padding:9px 12px;font:13px var(--mono);outline:none}
+  input[type=file]::file-selector-button{background:var(--accent);color:#04121f;border:0;border-radius:6px;
+    padding:7px 14px;margin-right:12px;font-weight:650;cursor:pointer;font-size:13px}
+  input[type=file]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,156,249,.15)}
   select{font-family:inherit}
-  button{background:linear-gradient(180deg,#FFC84A,var(--accent));color:#2A1802;border:0;border-radius:8px;padding:10px 20px;
+  button{background:var(--accent);color:#04121f;border:0;border-radius:8px;padding:10px 20px;
     font-weight:650;cursor:pointer;font-size:14px}
   button:hover{filter:brightness(1.08)}
   button:disabled{opacity:.5;cursor:not-allowed}
   button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line);font-weight:500}
   .hint{color:var(--dim);font-size:12px;margin-top:8px}
   .hint code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-family:var(--mono)}
-  .picked{font:12px var(--mono);color:var(--accent2);margin-top:6px;word-break:break-all;display:none}
-  .picked.show{display:block}
-  .vt{display:inline-block;margin:2px 8px 2px 0;padding:2px 8px;border-radius:6px;
-      background:var(--panel2);border:1px solid var(--line);font:12px var(--mono);color:var(--fg)}
-  .vt b{color:var(--accent2)}
-  table.mini{margin-top:4px}
-  table.mini td,table.mini th{padding:4px 8px;font-size:12px}
-  .drop{outline:2px dashed var(--accent);outline-offset:-10px}
+  .hint.ok{color:var(--accent2)}
+  .hint.bad{color:var(--err)}
   .err{color:var(--err);font-size:13px;margin-top:12px;display:none}
   .err.show{display:block}
   /* 结果 */
@@ -75,17 +58,17 @@
   td,th{padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
   th{color:var(--dim);font-weight:600;font-size:12px}
   td.name{font-family:var(--mono)}
-  .bar{height:7px;border-radius:4px;background:linear-gradient(90deg,#FFD97A,var(--accent));
+  .bar{height:7px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#79c0ff);
        min-width:3px;transition:width .35s ease}
   .pct{font-family:var(--mono);color:var(--dim);width:56px;text-align:right}
-  tr.gold td.name{color:var(--gold);font-weight:600}
+  tr.gold td.name{color:#ffd33d;font-weight:600}
   .ok{color:var(--accent2)} .no{color:var(--err)}
   details{margin-top:10px}
   summary{cursor:pointer;color:var(--dim);font-size:13px}
-  pre{background:rgba(18,11,4,.88);border:1px solid var(--line);border-radius:8px;padding:12px;
-      overflow:auto;max-height:260px;font:12px/1.5 var(--mono);color:#F3DFC2;margin:8px 0 0}
+  pre{background:#0a0e14;border:1px solid var(--line);border-radius:8px;padding:12px;
+      overflow:auto;max-height:260px;font:12px/1.5 var(--mono);color:#c9d1d9;margin:8px 0 0}
   .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.35);
-        border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+        border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .foot{color:var(--dim);font-size:12px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
 </style>
@@ -101,14 +84,8 @@
   <div class="card">
     <div class="row">
       <div class="grow">
-        <label for="path">谱包路径（.zip 或 maidata.txt，服务器本地绝对路径）</label>
-        <input type="text" id="path" placeholder="C:\MaiArchive-全版本.zip-nobga.df310f7b0af67fbd\PRiSM\Jack\[DX] Empire of Winter.zip" spellcheck="false">
-        <div id="picked" class="picked"></div>
-      </div>
-      <div style="width:120px">
-        <label for="browse">或直接选文件</label>
-        <button class="ghost" id="browse" type="button">浏览…</button>
-        <input type="file" id="file" multiple accept=".zip,.txt,application/zip,text/plain" hidden>
+        <label for="file">上传谱包（.zip 或 maidata.txt，可多选批量）</label>
+        <input type="file" id="file" accept=".zip,.txt" multiple>
       </div>
       <div style="width:120px">
         <label for="diff">难度</label>
@@ -129,50 +106,12 @@
           <option>3</option><option selected>6</option><option>10</option>
         </select>
       </div>
-      <div style="width:170px">
-        <label for="fq" title="q=0 几何平均：强调「所有谱面都指向同一人」，实测最优；q=1 算术平均：只看总概率；q 越大越看重一致性">融合强度 q</label>
-        <select id="fq">
-          <option value="0" selected>0 · 几何平均（推荐）</option>
-          <option value="0.5">0.5</option>
-          <option value="1">1 · 算术平均</option>
-          <option value="1.5">1.5</option>
-          <option value="2">2</option>
-          <option value="3">3 · 极强调一致</option>
-        </select>
-      </div>
-      <div style="width:132px">
-        <label for="chart">概率显示</label>
-        <select id="chart" title="在横向条形图与雷达图之间切换">
-          <option value="bar" selected>条形图</option>
-          <option value="radar">雷达图</option>
-        </select>
-      </div>
-      <div style="width:132px">
-        <label for="redges" title="雷达图的轴数 x。边数可独立于候选数配置：小于候选数时只画前 x 名，数值表仍列出全部候选">雷达边数 x</label>
-        <select id="redges">
-          <option value="0" selected>跟随候选数</option>
-          <option value="3">3 边</option>
-          <option value="4">4 边</option>
-          <option value="5">5 边</option>
-          <option value="6">6 边</option>
-          <option value="8">8 边</option>
-          <option value="10">10 边</option>
-          <option value="12">12 边</option>
-        </select>
-      </div>
-      <div style="width:128px">
-        <label for="rscale" title="雷达图的半径刻度。概率跨度常达 98% vs 0.4%，线性刻度会把小值全压到中心">雷达刻度</label>
-        <select id="rscale">
-          <option value="sqrt" selected>√ 压缩（推荐）</option>
-          <option value="linear">线性</option>
-          <option value="log">对数</option>
-        </select>
-      </div>
-      <button id="go">识别</button>
-      <button class="ghost" id="demo">示例</button>
+      <button id="go" disabled>识别</button>
+      <button class="ghost" id="clear">清空</button>
     </div>
-    <div class="hint">三种输入方式：<b>①</b> 点「浏览…」或把 <code>.zip</code>/<code>.txt</code> <b>直接拖到页面上</b>（无需填路径）；<b>②</b> 贴文件夹路径 → 自动取前 20 个包做批量；<b>③</b> 贴单个文件路径。<br>
-      难度编号：2 BASIC / 3 ADVANCED / 4 EXPERT / 5 MASTER / <b style="color:#c9a0ff">6 Re:MASTER（remaster）</b> / <b style="color:var(--warn)">7 宴会場</b>。标签空间已剔除 <code>-</code> 与无署名谱（宴会場 92 条全部无署名），共 <b id="nlab">…</b> 位谱师。</div>
+    <div class="hint" id="upStatus">尚未上传文件：请选择谱包，上传成功后点击「识别」。</div>
+    <div class="hint" id="cleanNote">文件保存在服务器 <code>./temp</code>，<b>每份文件分析完成后服务器即刻删除</b>；再次识别同一文件会由浏览器自动重新上传。</div>
+    <div class="hint">难度编号：2 BASIC / 3 ADVANCED / 4 EXPERT / 5 MASTER / <b style="color:#c9a0ff">6 Re:MASTER（remaster）</b> / <b style="color:var(--warn)">7 宴会場</b>。标签空间已剔除 <code>-</code> 与无署名谱（宴会場 92 条全部无署名），共 <b id="nlab">…</b> 位谱师。</div>
     <div class="err" id="err"></div>
   </div>
 
@@ -191,6 +130,9 @@ const out = $("#out"), errBox = $("#err");
 function showErr(msg){ errBox.textContent = msg; errBox.classList.add("show"); }
 function clearErr(){ errBox.classList.remove("show"); }
 
+let uploaded = [];    // 已成功上传到服务器 ./temp 的文件名列表
+let consumed = false; // 上次识别请求已发出，服务器已即刻删除这些文件
+
 fetch("/api/health").then(r=>r.json()).then(h=>{
   if(h.ok){
     $("#health").textContent = `${h.arch} · α=${h.alpha} · ${h.labels} 类`;
@@ -198,118 +140,116 @@ fetch("/api/health").then(r=>r.json()).then(h=>{
   } else { $("#health").textContent = "模型未就绪"; }
 }).catch(()=>{ $("#health").textContent = "后端未连接"; });
 
-$("#demo").onclick = () => {
-  $("#path").value = "C:\\MaiArchive-全版本.zip-nobga.df310f7b0af67fbd\\PRiSM\\Jack\\[DX] Empire of Winter.zip";
-  $("#diff").value = "5";
-  PICKED = [];
-  showPicked();
+function setStatus(msg, cls){
+  const el = $("#upStatus");
+  el.textContent = msg;
+  el.className = "hint" + (cls ? " " + cls : "");
+}
+function setReady(){ $("#go").disabled = !uploaded.length; }
+
+async function uploadOne(f){
+  const r = await fetch("/api/upload?name=" + encodeURIComponent(f.name), {
+    method:"POST", headers:{"Content-Type":"application/octet-stream"}, body:f
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok || !j.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j.name;
+}
+
+/* 选择文件后立即上传；全部成功 → 绿色提示，可点「识别」 */
+$("#file").addEventListener("change", async () => {
+  clearErr();
+  const sel = Array.from($("#file").files || []);
+  if(!sel.length) return;
+  uploaded = [];
+  consumed = false;
+  setReady();
+  const okNames = [], fails = [];
+  for(let i = 0; i < sel.length; i++){
+    const f = sel[i];
+    setStatus(`上传中…（${i+1}/${sel.length}）${f.name}`);
+    try{ okNames.push(await uploadOne(f)); }
+    catch(e){ fails.push(`${f.name}：${e.message}`); }
+  }
+  uploaded = okNames;
+  setReady();
+  if(okNames.length && !fails.length){
+    setStatus(`上传成功：${okNames.join("、")}，点击「识别」开始识别`, "ok");
+  }else if(okNames.length){
+    setStatus(`部分上传成功：${okNames.join("、")}；失败 — ${fails.join("；")}`, "bad");
+  }else{
+    setStatus(`上传失败：${fails.join("；")}`, "bad");
+  }
+});
+
+$("#clear").onclick = () => {
+  uploaded = [];
+  consumed = false;
+  $("#file").value = "";
+  setReady();
+  clearErr();
+  setStatus("尚未上传文件：请选择谱包，上传成功后点击「识别」。");
 };
 
 $("#go").onclick = run;
-$("#path").addEventListener("keydown", e => { if(e.key === "Enter") run(); });
+
+/* 服务器识别后即刻删文件 → 再次识别前，从浏览器本地选择自动重新上传 */
+async function ensureUploaded(){
+  if(!consumed) return true;
+  const sel = Array.from($("#file").files || []);
+  if(!sel.length){
+    uploaded = [];
+    setReady();
+    setStatus("文件已被服务器清理且本地无选择，请重新选择文件上传。", "bad");
+    return false;
+  }
+  const okNames = [], fails = [];
+  for(const f of sel){
+    try{ okNames.push(await uploadOne(f)); }
+    catch(e){ fails.push(`${f.name}：${e.message}`); }
+  }
+  uploaded = okNames;
+  if(!okNames.length){
+    setReady();
+    setStatus(`重新上传失败：${fails.join("；")}`, "bad");
+    return false;
+  }
+  consumed = false;
+  setReady();
+  if(fails.length) setStatus(`部分重新上传成功；失败 — ${fails.join("；")}`, "bad");
+  return true;
+}
 
 async function run(){
   clearErr();
-  const path = $("#path").value.trim();
-  if(!path){ showErr("请先填写路径"); return; }
+  if(!uploaded.length){ setStatus("请先上传谱包（.zip 或 maidata.txt）", "bad"); return; }
+  if(!(await ensureUploaded())) return;
   const diff = $("#diff").value;
   $("#go").disabled = true;
   $("#go").innerHTML = '<span class="spin"></span> 识别中';
+  setStatus(`识别中…（${uploaded.length} 个文件）`);
   out.innerHTML = "";
+  consumed = true;   // 请求一旦发出，服务器即会在分析后删除文件；下次识别自动重新上传
   try{
     const r = await fetch("/api/predict", {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ path, diffs: diff === "all" ? null : diff, top: +$("#top").value,
-                             showText:true, limit:20, fuse:true, fuseQ:+$("#fq").value })
+      body: JSON.stringify({ files: uploaded, diffs: diff === "all" ? null : diff, top: +$("#top").value,
+                             showText:true, limit:20 })
     });
-    const j = await r.json();
-    if(!r.ok || !j.ok){ showErr(j.error || ("HTTP " + r.status)); return; }
-    render(j);
-  }catch(e){ showErr("请求失败: " + e); }
-  finally{ $("#go").disabled = false; $("#go").textContent = "识别"; }
-}
-
-/* ===================== 浏览上传（浏览器拿不到本地绝对路径，改走字节上传） ===================== */
-let PICKED = [];            // 已选中的 File 列表
-
-const MAX_FILES = 40, MAX_ONE_MB = 64;
-
-function fmtSize(b){ return b >= 1048576 ? (b/1048576).toFixed(1)+" MB"
-                          : b >= 1024 ? (b/1024).toFixed(0)+" KB" : b+" B"; }
-
-function showPicked(){
-  const box = $("#picked");
-  if(!PICKED.length){ box.classList.remove("show"); box.textContent = ""; return; }
-  const names = PICKED.map(f => f.name + ` (${fmtSize(f.size)})`);
-  const more = PICKED.length > 3 ? ` … 等 ${PICKED.length} 个文件` : "";
-  box.textContent = "已选：" + names.slice(0,3).join("、") + more;
-  box.classList.add("show");
-}
-
-async function toB64(file){
-  // 分块 btoa，避免大文件 spread 触发调用栈溢出
-  const buf = new Uint8Array(await file.arrayBuffer());
-  let bin = "";
-  const CH = 0x8000;
-  for(let i = 0; i < buf.length; i += CH) bin += String.fromCharCode.apply(null, buf.subarray(i, i+CH));
-  return btoa(bin);
-}
-
-async function runUpload(){
-  clearErr();
-  if(!PICKED.length){ showErr("请先用「浏览…」选择 .zip 或 maidata.txt"); return; }
-  const diff = $("#diff").value;
-  $("#go").disabled = true; $("#browse").disabled = true;
-  out.innerHTML = "";
-  $("#go").innerHTML = '<span class="spin"></span> 上传中';
-  try{
-    $("#go").innerHTML = '<span class="spin"></span> 读取文件 0/' + PICKED.length;
-    const files = [];
-    for(let i = 0; i < PICKED.length; i++){
-      $("#go").innerHTML = `<span class="spin"></span> 读取文件 ${i+1}/${PICKED.length}`;
-      files.push({ name: PICKED[i].name, size: PICKED[i].size, b64: await toB64(PICKED[i]) });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok || !j.ok){
+      const msg = j.error || ("HTTP " + r.status);
+      if(/不存在|重新上传|清理|先上传/.test(msg))
+        setStatus("服务器上的文件已不在，再次点击「识别」将自动重新上传并重试。", "bad");
+      else
+        setStatus("识别失败，请查看下方错误信息；再次点击「识别」会自动重新上传重试。", "bad");
+      showErr(msg); return;
     }
-    $("#go").innerHTML = '<span class="spin"></span> 识别中';
-    const r = await fetch("/api/upload", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ files, diffs: diff === "all" ? null : diff,
-                             top: +$("#top").value, showText:true,
-                             fuse:true, fuseQ:+$("#fq").value, fuseTop:8 })
-    });
-    const j = await r.json();
-    if(!r.ok || !j.ok){ showErr(j.error || ("HTTP " + r.status)); return; }
     render(j);
-  }catch(e){ showErr("上传失败: " + e); }
-  finally{ $("#go").disabled = false; $("#browse").disabled = false; $("#go").textContent = "识别"; }
+    setStatus(`识别完成（${j.count} 个文件），服务器已即刻清理；可调整难度后再次识别（自动重新上传）。`, "ok");
+  }catch(e){ showErr("请求失败: " + e); }
+  finally{ setReady(); $("#go").textContent = "识别"; }
 }
-
-function acceptFiles(list){
-  const arr = Array.from(list).filter(f => /\.(zip|txt)$/i.test(f.name));
-  const skipped = Array.from(list).length - arr.length;
-  if(!arr.length){ showErr("只支持 .zip 或 .txt 文件"); return; }
-  if(arr.length > MAX_FILES){ showErr(`一次最多 ${MAX_FILES} 个文件（选中 ${arr.length}）`); return; }
-  const big = arr.find(f => f.size > MAX_ONE_MB*1048576);
-  if(big){ showErr(`「${big.name}」有 ${fmtSize(big.size)}，超过 ${MAX_ONE_MB} MB 上限`); return; }
-  PICKED = arr;
-  showPicked();
-  if(skipped) showErr(`已忽略 ${skipped} 个非 .zip/.txt 文件`);
-  runUpload();
-}
-
-$("#browse").onclick = () => $("#file").click();
-$("#file").onchange = e => { acceptFiles(e.target.files); e.target.value = ""; };
-
-/* 拖拽：把 zip / txt 直接拖到页面上 */
-["dragover","dragenter"].forEach(ev => document.addEventListener(ev, e => {
-  e.preventDefault(); document.body.classList.add("drop");
-}));
-["dragleave","drop"].forEach(ev => document.addEventListener(ev, e => {
-  e.preventDefault();
-  if(ev === "drop" || e.relatedTarget === null) document.body.classList.remove("drop");
-}));
-document.addEventListener("drop", e => {
-  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) acceptFiles(e.dataTransfer.files);
-});
 
 const DIFFNAME = {2:"BASIC",3:"ADVANCED",4:"EXPERT",5:"MASTER",6:"Re:MASTER",7:"宴会場"};
 
@@ -322,217 +262,17 @@ function diffBadge(d){
 
 function esc(s){ return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
-/* ================= 图表模式：条形图 / 雷达图 ================= */
-let CHART = "bar";      // bar | radar
-let RSCALE = "sqrt";    // sqrt | linear | log
-let REDGES = 0;         // 雷达轴数 x；0 = 跟随候选数
-let LAST_PAYLOAD = null; // 最近一次结果，切换图表时本地重渲染
-
-/* 切换图表 / 刻度 / 边数：直接重渲染已有结果，不重新请求后端 */
-function redraw(){
-  if(LAST_PAYLOAD) render(LAST_PAYLOAD);
-}
-$("#chart").onchange = e => { CHART = e.target.value; redraw(); };
-$("#rscale").onchange = e => { RSCALE = e.target.value; redraw(); };
-$("#redges").onchange = e => { REDGES = +e.target.value; redraw(); };
-
-/* SVG presentation attribute 不解析 CSS 变量，SVG 内部一律用下面这些常量 */
-const C_LINE = "rgba(255,182,39,.30)";
-const C_DIM  = "#C9AC83";
-const C_FG   = "#FFF3E0";
-const GOLD   = "#FFD65C";
-
-/* 概率 → 半径比例。雷达图上概率跨度常达 0.98 vs 0.004，
-   线性刻度会把小值全压到中心，所以默认用 √（面积感知，雷达图标准做法）。 */
-function rScale(p, mode){
-  if(mode === "linear") return p;
-  if(mode === "log")    return Math.log10(1 + 99 * p) / 2;
-  return Math.sqrt(p);
-}
-
-/* 生成 SVG 雷达图。cands: [{des, p}] */
-function radarSVG(cands, opt){
-  opt = opt || {};
-  const N = cands.length;
-  if(N < 3) return "";                       // 少于 3 边画不成雷达图
-  const W = 380, H = 320, cx = W/2, cy = H/2 + 4, R = 82;
-  const gid = "rg" + Math.random().toString(36).slice(2, 8);
-  const c0 = opt.c0 || "#FFC24A", c1 = opt.c1 || "#FF8A2B";
-  const mode = opt.mode || RSCALE;
-  const ang = i => (-90 + i * 360 / N) * Math.PI / 180;
-  const pt  = (i, r) => [cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))];
-  const poly = (rs) => rs.map((r,i) => pt(i,r).map(v => v.toFixed(1)).join(",")).join(" ");
-
-  const RINGS = 4;
-  let g = "";
-  for(let k = RINGS; k >= 1; k--){
-    const r = R * k / RINGS;
-    g += `<polygon points="${poly(new Array(N).fill(r))}" fill="none"
-           stroke="${C_LINE}" stroke-width="1" ${k===RINGS?'opacity="1"':'opacity=".55"'}/>`;
-  }
-  // 轴线
-  for(let i = 0; i < N; i++){
-    const [x,y] = pt(i, R);
-    g += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"
-           stroke="${C_LINE}" stroke-width="1" opacity=".7"/>`;
-  }
-  // 刻度标签（只标最外圈，够用且不糊）
-  for(let k = 1; k <= RINGS; k++){
-    const r = R * k / RINGS, v = Math.pow(k / RINGS, mode === "linear" ? 1 : 2);
-    g += `<text x="${(cx+4).toFixed(1)}" y="${(cy-r+3).toFixed(1)}"
-           font-size="9" fill="${C_DIM}" opacity=".8">${(v*100).toFixed(0)}%</text>`;
-  }
-  // 数据多边形
-  const rs = cands.map(c => Math.max(1.5, R * rScale(c.p, mode)));
-  g += `<polygon points="${poly(rs)}" fill="url(#${gid})" fill-opacity=".30"
-         stroke="${c0}" stroke-width="2" stroke-linejoin="round"/>`;
-  cands.forEach((c, i) => {
-    const [x,y] = pt(i, rs[i]);
-    const best = (opt.goldIdx === i);
-    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${best?4.5:3}"
-           fill="${best?GOLD:c0}" stroke="#241705" stroke-width="1"/>`;
-  });
-  // 轴标签
-  cands.forEach((c, i) => {
-    const a = ang(i);
-    const lr = R + 20;
-    let x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
-    const cosv = Math.cos(a);
-    let anchor = "middle";
-    if(cosv > 0.25) anchor = "start";
-    else if(cosv < -0.25) anchor = "end";
-    y = Math.max(11, Math.min(H - 5, y));
-    const name = c.des.length > 9 ? c.des.slice(0,8) + "…" : c.des;
-    g += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}"
-           font-size="10.5" fill="${opt.goldIdx===i?GOLD:C_FG}"
-           font-family="ui-monospace,Consolas,monospace">${esc(name)}</text>`;
-    g += `<text x="${x.toFixed(1)}" y="${(y+11).toFixed(1)}" text-anchor="${anchor}"
-           font-size="9.5" fill="${C_DIM}"
-           font-family="ui-monospace,Consolas,monospace">${(c.p*100).toFixed(1)}%</text>`;
-  });
-
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:6px auto 2px"
-            role="img" aria-label="候选谱师概率雷达图">
-    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${c0}"/><stop offset="100%" stop-color="${c1}"/>
-    </linearGradient></defs>${g}</svg>`;
-}
-
-/* 统一的「候选谱师概率」展示：条形表 或 雷达图 */
-function candChart(cands, opt){
-  opt = opt || {};
-  if(!cands || !cands.length) return "";
-
-  if(CHART === "radar"){
-    /* 轴数 x 可独立配置：
-         REDGES = 0  → 跟随候选数（每名候选一条轴）
-         REDGES = x  → 只画前 x 名；x 超过候选数时退化为候选数，并如实告知 */
-    const want = REDGES > 0 ? Math.min(REDGES, cands.length) : cands.length;
-    if(want < 3){
-      // 不足 3 条轴构不成雷达图 → 如实回落条形表
-      return barTable(cands, opt) +
-        `<div class="hint">候选不足 ${REDGES > 0 ? REDGES : 3} 条轴，无法构成雷达图，已显示条形表</div>`;
-    }
-    const axes = cands.slice(0, want);
-    const scaleTxt = {sqrt:"√ 压缩", linear:"线性", log:"对数"}[RSCALE];
-    let note;
-    if(REDGES === 0){
-      note = `雷达图为 <b>${want} 条轴</b>（跟随候选数）`;
-    } else if(REDGES < cands.length){
-      note = `雷达图为 <b>${want} 条轴</b>（配置 ${REDGES} 边，共 ${cands.length} 个候选，显示前 ${want} 名；下方数值表仍列出全部 ${cands.length} 名）`;
-    } else {
-      note = `雷达图为 <b>${want} 条轴</b>（配置 ${REDGES} 边，但本次只有 ${cands.length} 个候选，已退化为 ${want} 边）`;
-    }
-    if(want === 3){
-      note += `　<span style="color:var(--warn)">仅 3 边，几何形状信息有限，读数以下方数值表为准</span>`;
-    }
-
-    /* 雷达图对极端长尾不敏感：实测 98.5% vs 0.04% 的半径比即使开 √ 仍有 50:1，
-       小候选会全挤在中心。所以雷达图下方必附「精确数值表」，
-       并把条形按「次高候选」归一化，让 Top2~N 的相对差异也看得见。 */
-    const ref = cands[1] ? cands[1].p : (cands[0].p || 1);
-    const mini = `<table class="mini">
-      <thead><tr><th></th><th>候选谱师</th><th style="width:38%">相对次高候选</th><th class="pct">概率</th></tr></thead>
-      <tbody>${cands.map((c,i) => `
-        <tr class="${i===0 && opt.gold ? "gold" : ""}">
-          <td style="width:24px;color:var(--dim)">${i+1}</td>
-          <td class="name" title="${esc(c.des)}">${esc(c.des)}</td>
-          <td><div class="bar" style="width:${Math.max(1.5, Math.min(100, c.p/ref*100))}%${opt.miniGrad||""}"></div></td>
-          <td class="pct">${(c.p*100).toFixed(2)}%</td>
-        </tr>`).join("")}</tbody></table>`;
-    return radarSVG(axes, Object.assign({}, opt, {goldIdx: opt.gold ? 0 : -1}))
-      + `<div class="hint" style="text-align:center;margin-top:2px">${note}<br>
-           半径采用 ${scaleTxt} 刻度（雷达图对长尾分布不敏感，故下方附精确数值表）</div>`
-      + mini;
-  }
-  return barTable(cands, opt);
-}
-
-function barTable(cands, opt){
-  const maxP = cands[0].p || 1;
-  const grad = opt.grad || "";
-  return `<table>
-    <thead><tr><th></th><th>候选谱师</th><th>概率</th><th class="pct">置信度</th></tr></thead>
-    <tbody>${cands.map((c,i) => `
-      <tr class="${i===0 && opt.gold ? "gold" : ""}">
-        <td style="width:28px;color:var(--dim)">${i+1}</td>
-        <td class="name" title="${esc(c.des)}">${esc(c.des)}</td>
-        <td style="width:45%"><div class="bar" style="width:${Math.max(2, c.p/maxP*100)}%${grad}"></div></td>
-        <td class="pct">${(c.p*100).toFixed(1)}%</td>
-      </tr>`).join("")}</tbody></table>`;
-}
-
-/* ============ 综合谱师印象：把多张谱面的证据融合成一个判断 ============ */
-function fusedCard(f){
-  if(!f) return "";
-  const rel = f.reliability || {};
-  const lvl = rel.level || "mid";
-  const tone = {good:"var(--accent2)", mid:"var(--accent)", "mid-low":"var(--warn)",
-                low:"var(--warn)", "very-low":"var(--err)"}[lvl] || "var(--warn)";
-  const bars = candChart(f.top, {
-    gold: true, goldIdx: 0,
-    grad: ";background:linear-gradient(90deg,#7ee787,#4f9cf9)",
-    miniGrad: ";background:linear-gradient(90deg,#7ee787,#4f9cf9)",
-    c0: "#7ee787", c1: "#4f9cf9"
-  });
-  const votes = (f.votes||[]).map(v=>`<span class="vt">${esc(v[0])} <b>${v[1]}</b></span>`).join("");
-  const known = f.known_signed
-    ? `<div class="kv" style="margin-top:10px">其中 <b>${f.known_signed}</b> 张谱面在文件里已有署名
-        （${esc((f.known_names||[]).join("、"))}）${f.truth_match===true
-          ? ' — <span class="ok">与综合结论一致 ✔</span>'
-          : f.truth_match===false
-          ? ' — <span class="no">与综合结论不一致 ✘</span>' : ''}</div>`
-    : "";
-  return `<div class="card" style="border-color:${tone}">
-    <div class="song">综合谱师印象 · 基于 ${f.n_charts} 张谱面 / ${f.n_files} 个谱包</div>
-    <div class="meta">融合方式 ${f.q==0?"几何平均（强调一致）":`幂平均 q=${f.q}`}
-      · 票数一致性 <b style="color:${tone}">${f.top_votes}/${f.n_charts} (${Math.round(f.agreement*100)}%)</b>
-      · 与次名差距 ${(f.margin*100).toFixed(1)}%
-      · 难度分布 ${Object.entries(f.by_diff||{}).map(([k,v])=>(DIFFNAME[k]||k)+"×"+v).join(" ")}</div>
-    <div class="kv" style="color:${tone};margin:8px 0 2px;font-size:13px">
-      ${lvl==="good"?"✔":"⚠"} 可靠性：${esc(rel.note||"")}</div>
-    ${bars}
-    ${votes?`<div class="kv" style="margin-top:10px"><span class="k">单张 Top-1 票数</span> ${votes}</div>`:""}
-    ${known}
-  </div>`;
-}
-
 function render(payload){
-  // 新接口：members（扁平，每个谱面一条）+ fused + errors
-  LAST_PAYLOAD = payload;                      // 供图表切换时本地重渲染，避免重复请求
-  const members = payload.members || [];
-  const legacy = payload.results ? payload.results.flatMap(r => (r.results||[])) : [];
-  const list = members.length ? members : legacy;
-  if(!list.length && !(payload.errors||[]).length){ showErr("没有返回结果"); return; }
+  const list = payload.results || (payload.result ? [payload.result] : []);
+  if(!list.length){ showErr("没有返回结果"); return; }
   let html = "";
-
-  html += fusedCard(payload.fused);
-
   if(list.length > 1){
-    const okN = list.filter(x=>x.hit).length;
-    const allN = list.filter(x=>x.des_in_label_space).length;
+    const flat = list.flatMap(r => r.results||[]);
+    const okN = flat.filter(x=>x.hit).length;
+    const allN = flat.filter(x=>x.des_in_label_space).length;
+    // 分难度命中统计，Re:MASTER / 宴会場单列
     const byDiff = {};
-    list.forEach(x => {
+    flat.forEach(x => {
       const k = x.diff;
       byDiff[k] = byDiff[k] || {ok:0, n:0, unsigned:0};
       if(x.des_in_label_space){ byDiff[k].n++; if(x.hit) byDiff[k].ok++; }
@@ -541,25 +281,27 @@ function render(payload){
     const rows = Object.keys(byDiff).sort((a,b)=>a-b).map(d => {
       const s = byDiff[d];
       return `<tr><td class="name">${diffBadge(+d)} ${DIFFNAME[d] || ("难度"+d)}</td>
-        <td style="width:55%"><div class="bar" style="width:${s.n?Math.max(2,s.ok/s.n*100):0}%;${d==6?"background:linear-gradient(90deg,#B6EE86,#5FA83A)":d==7?"background:linear-gradient(90deg,#FFA79A,#D14A38)":""}"></div></td>
+        <td style="width:55%"><div class="bar" style="width:${s.n?Math.max(2,s.ok/s.n*100):0}%;${d==6?"background:linear-gradient(90deg,#a371f7,#d2a8ff)":""}"></div></div>
         <td class="pct">${s.ok}/${s.n}${s.unsigned?` <span style="color:var(--warn)">+${s.unsigned}无署名</span>`:""}</td></tr>`;
     }).join("");
-    html += `<div class="card"><div class="song">逐张识别 · ${new Set(list.map(x=>x.file)).size} 个谱包 / ${list.length} 张谱面</div>
-      <div class="meta">单张 Top-1 共命中 <b style="color:var(--accent2)">${okN}</b> / ${allN} 个有署名的谱</div>
-      <table><thead><tr><th>难度</th><th>单张 Top-1 命中率</th><th class="pct">命中 / 有署名</th></tr></thead>
+    html += `<div class="card"><div class="song">批量识别 · ${list.length} 个谱包</div>
+      <div class="meta">共命中 <b style="color:var(--accent2)">${okN}</b> / ${allN} 个有署名的谱（Top-1）</div>
+      <table><thead><tr><th>难度</th><th>Top-1 命中率</th><th class="pct">命中 / 有署名</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
-    html += `<details class="card"><summary style="font-size:15px;font-weight:600">展开 ${list.length} 张谱面的单张判断</summary>`
-         + list.map(one).join("") + `</details>`;
-  } else {
-    html += list.map(one).join("");
   }
-
-  const errs = payload.errors || [];
-  if(errs.length){
-    html += `<div class="card"><div class="song" style="color:var(--warn)">${errs.length} 个文件未能解析</div>`
-         + errs.map(e=>`<div class="kv" style="color:var(--warn)">${esc(e.file)} : ${esc(e.error)}</div>`).join("")
-         + `</div>`;
-  }
+  html += list.map(rec => {
+    if(rec.error){
+      return `<div class="card"><div class="song">${esc(rec.file)}</div>
+        <div class="err show" style="margin:0">${esc(rec.error)}</div></div>`;
+    }
+    const m = rec.meta || {};
+    return `<div class="card">
+      <div class="song">${esc(m.title || "(未命名)")}</div>
+      <div class="meta">作曲 ${esc(m.artist||"-")} · 版本 ${esc(m.version||"-")} · shortid ${esc(m.shortid||"-")}
+        · 模型 ${esc(rec.arch)} · α=${rec.alpha} · 编码 ${esc(rec.encoding)}
+        ${list.length>1 ? " · <span title='文件路径'>"+esc(String(rec.file).split("\\").pop())+"</span>" : ""}</div>
+    </div>` + rec.results.map(one).join("");
+  }).join("");
   out.innerHTML = html;
 }
 
@@ -574,27 +316,22 @@ function one(r){
   const note = r.des_in_label_space ? "" :
     `<div class="kv" style="color:var(--warn);margin-top:8px">⚠ 该谱无署名（${esc(r.des_value)}），不在模型标签空间内；以下为「谁可能打这首歌」的候选</div>`;
 
-  const rows = candChart(r.top, {
-    gold: !!r.hit, goldIdx: r.hit ? 0 : -1
-  });
+  const maxP = r.top[0] ? r.top[0].p : 1;
+  const rows = r.top.map((c,i) => `
+    <tr class="${i===0 && r.hit ? "gold" : ""}">
+      <td style="width:28px;color:var(--dim)">${i+1}</td>
+      <td class="name">${esc(c.des)}</td>
+      <td style="width:45%"><div class="bar" style="width:${Math.max(2, c.p/maxP*100)}%"></div></td>
+      <td class="pct">${(c.p*100).toFixed(1)}%</td>
+    </tr>`).join("");
 
   const verdict = r.des_in_label_space
     ? (r.hit ? `<span class="ok">✔ 命中</span>` : `<span class="no">✘ 未命中</span>`)
     : `<span style="color:var(--warn)">— 无署名，不计命中</span>`;
 
-  const m = r.meta || {};
-  const head = (m.title || (r.file||"").split("\\").pop() || "(未命名)");
-  const sub = [ m.artist ? "作曲 "+esc(m.artist) : "",
-                m.version ? "版本 "+esc(m.version) : "",
-                m.shortid ? "shortid "+esc(m.shortid) : "",
-                (r.file||"") ? "文件 "+esc(String(r.file).split("\\").pop()) : "" ]
-               .filter(Boolean).join(" · ");
-
   return `
   <div class="card">
-    <div class="song">${esc(head)}</div>
-    ${sub ? `<div class="meta">${sub}</div>` : ""}
-    <div class="song" style="font-size:15px;margin-top:6px">${diffBadge(r.diff)} ${DIFFNAME[r.diff] || ("难度"+r.diff)} · ${esc(r.lv || "")} ★ ${verdict}</div>
+    <div class="song">${diffBadge(r.diff)} ${DIFFNAME[r.diff] || ("难度"+r.diff)} · ${esc(r.lv || "")} ★ ${verdict}</div>
     <div class="spans">
       <div class="span">
         <h3>输入区间（音符）</h3>
@@ -608,7 +345,10 @@ function one(r){
       </div>
     </div>
     ${note}
-    ${rows}
+    <table>
+      <thead><tr><th></th><th>候选谱师</th><th>概率</th><th class="pct">置信度</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
     <details><summary>查看音符区间原文片段</summary><pre>${esc(r.notes_preview||"")}</pre></details>
   </div>`;
 }

@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-本地交互界面：输入 zip（或 maidata.txt）路径 → 返回区间定位与谱师预测。
+本地交互界面：上传 zip（或 maidata.txt）到 ./temp → 点击识别 → 返回区间定位与谱师预测。
+每份文件分析完成后即刻从 ./temp 删除，不做基于时间的定时清理。
 
 启动： python server.py [--port 8000] [--host 127.0.0.1]
 依赖：仅标准库（http.server）+ numpy；模型文件需已训练好。
 """
 import argparse
-import base64
-import binascii
 import json
 import os
 import posixpath
 import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 try:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 except Exception:
     pass
 
@@ -25,6 +24,8 @@ import predict as P  # noqa: E402
 
 PY = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(PY, "static")
+TEMP = os.path.join(PY, "temp")          # 上传谱包暂存目录（./temp）
+CHUNK = 1 << 16                          # 上传落盘分块大小
 
 MIME = {
     ".html": "text/html; charset=utf-8",
@@ -35,12 +36,8 @@ MIME = {
     ".ico": "image/x-icon",
 }
 
-STATE = {"predictor": None, "specs": P.DEFAULT_MODELS, "alpha": None}
-
-# 上传限制：单个文件 64 MB，单次请求 256 MB（zip 谱包通常 1~15 MB）
-MAX_FILE_BYTES = 64 * 1024 * 1024
-MAX_BODY_BYTES = 256 * 1024 * 1024
-MAX_UPLOAD_FILES = 40
+STATE = {"predictor": None, "specs": P.DEFAULT_MODELS, "alpha": None,
+         "max_upload": 200 * 1024 * 1024}
 
 
 def get_predictor(specs, alpha):
@@ -54,20 +51,28 @@ def get_predictor(specs, alpha):
     return STATE["predictor"]
 
 
-def _diffs_of(req):
-    """请求里的 diffs 字段 → Optional[List[int]]。"""
-    diffs = req.get("diffs")
-    if isinstance(diffs, str):
-        diffs = [int(x) for x in diffs.replace(" ", "").split(",") if x.isdigit()] or None
-    elif isinstance(diffs, list):
-        diffs = [int(x) for x in diffs] or None
-    return diffs or None
+def safe_name(raw):
+    """清洗上传/引用的文件名：只取 basename，剔除危险字符，防止路径穿越。"""
+    name = (raw or "").strip().strip('"').replace("\\", "/").split("/")[-1].strip()
+    name = "".join(c for c in name if c >= " " and c not in '<>:"|?*')
+    name = name.strip().strip(".")
+    if not name:
+        raise ValueError("文件名无效")
+    if len(name) > 180:
+        root, ext = os.path.splitext(name)
+        name = root[:180 - len(ext)] + ext
+    return name
 
 
-def _fuse_args(req):
-    return (bool(req.get("fuse", True)),
-            float(req.get("fuseQ") if req.get("fuseQ") not in (None, "") else 0.0),
-            int(req.get("fuseTop") or 8))
+def discard(fp):
+    """分析完成后即刻删除 temp 中的该文件；失败只告警，不影响结果返回。"""
+    try:
+        os.remove(fp)
+        print("[清理] 分析完成，已删除 %s" % os.path.basename(fp), flush=True)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        print("[清理] 删除失败 %s: %s" % (fp, exc), flush=True)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -102,68 +107,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, f.read(), ctype)
 
     # ---------- 路由 ----------
-    def _read_body(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        if n <= 0:
-            return b""
-        if n > MAX_BODY_BYTES:
-            raise ValueError("请求体过大（%.1f MB），单个文件请控制在 %d MB 以内"
-                             % (n / 1048576.0, MAX_FILE_BYTES // 1048576))
-        return self.rfile.read(n)
-
-    def _upload(self):
-        """网页「浏览」上传：{"files":[{"name":"x.zip","b64":"..."}], "diffs":"5", ...}
-
-        浏览器出于安全限制拿不到本地绝对路径，所以由前端读字节传上来，
-        后端在内存里解析 zip / txt，无需服务器能访问该路径。
-        """
-        try:
-            req = json.loads(self._read_body().decode("utf-8") or "{}")
-        except ValueError:
-            return self._send(400, {"error": "请求体不是合法 JSON"})
-        files = req.get("files") or []
-        if not files:
-            return self._send(400, {"error": "没有收到文件"})
-        if len(files) > MAX_UPLOAD_FILES:
-            return self._send(400, {"error": "一次最多 %d 个文件（收到 %d）"
-                                          % (MAX_UPLOAD_FILES, len(files))})
-        specs = req.get("models") or STATE["specs"]
-        alpha = req.get("alpha")
-        alpha = float(alpha) if alpha not in (None, "") else None
-        pred = get_predictor(specs, alpha)
-        diffs = _diffs_of(req)
-        top = int(req.get("top") or 6)
-        show_text = bool(req.get("showText", True))
-        fuse, fq, ftop = _fuse_args(req)
-
-        sources, errors = [], []
-        for item in files:
-            name = str(item.get("name") or "(未命名)")
-            try:
-                data = base64.b64decode(item.get("b64") or "", validate=False)
-            except (binascii.Error, ValueError):
-                errors.append({"file": name, "error": "文件数据损坏（base64 解码失败）"})
-                continue
-            if len(data) > MAX_FILE_BYTES:
-                errors.append({"file": name, "error": "文件过大（%.1f MB）"
-                                                    % (len(data) / 1048576.0)})
-                continue
-            sources.append((name, "bytes", data))
-
-        res = P.analyze_many(sources, pred, diffs, top,
-                             fuse=fuse, fuse_q=fq, fuse_top=ftop, want_text=show_text)
-        if not res.get("ok"):
-            all_err = (res.get("errors") or []) + errors
-            msg = all_err[0]["error"] if all_err else "没有可解析的谱面"
-            return self._send(400, {"error": msg, "errors": all_err})
-
-        payload = {"ok": True, "batch": True, "count": len(res["members"]),
-                   "members": res["members"], "fused": res["fused"],
-                   "errors": errors + (res.get("errors") or []),
-                   "arch": res.get("arch"), "alpha": res.get("alpha"),
-                   "source": "upload"}
-        return self._send(200, payload)
-
     def do_GET(self):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
@@ -176,6 +119,7 @@ class Handler(BaseHTTPRequestHandler):
                 "arch": p.arches if p else None,
                 "alpha": p.alpha if p else None,
                 "labels": len(p.labels) if p else 0,
+                "temp": "temp",
             })
         if u.path.startswith("/static/"):
             return self._static(u.path[len("/static/"):])
@@ -184,40 +128,106 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urlparse(self.path)
         if u.path == "/api/upload":
-            return self._upload()
-        if u.path != "/api/predict":
-            return self._send(404, {"error": "not found"})
+            return self._upload(u)
+        if u.path == "/api/predict":
+            return self._predict()
+        return self._send(404, {"error": "not found"})
+
+    # ---------- 上传谱包：原始字节流 + ?name=文件名，落盘到 ./temp ----------
+    def _upload(self, u):
+        raw = (parse_qs(u.query).get("name") or [""])[0] or self.headers.get("X-Filename") or ""
+        try:
+            name = safe_name(raw)
+        except ValueError as exc:
+            self.close_connection = True    # 请求体未被读取，直接断开
+            return self._send(400, {"error": str(exc)})
+        if os.path.splitext(name)[1].lower() not in (".zip", ".txt"):
+            self.close_connection = True
+            return self._send(400, {"error": "仅支持 .zip 谱包或 maidata.txt，收到：%s" % name})
+        n = int(self.headers.get("Content-Length") or 0)
+        if n <= 0:
+            self.close_connection = True
+            return self._send(400, {"error": "上传内容为空，请在页面选择文件后再上传"})
+        if n > STATE["max_upload"]:
+            self.close_connection = True
+            mb = 1024.0 * 1024.0
+            return self._send(413, {"error": "文件过大（%.1f MB），上限 %.0f MB"
+                                    % (n / mb, STATE["max_upload"] / mb)})
+        os.makedirs(TEMP, exist_ok=True)
+        dest = os.path.join(TEMP, name)
+        part = dest + ".part"
+        try:
+            left = n
+            with open(part, "wb") as f:
+                while left > 0:
+                    chunk = self.rfile.read(min(CHUNK, left))
+                    if not chunk:
+                        raise IOError("连接被提前关闭")
+                    f.write(chunk)
+                    left -= len(chunk)
+            os.replace(part, dest)      # 同名覆盖，原子替换
+        except Exception as exc:
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+            traceback.print_exc()
+            return self._send(500, {"error": "保存失败：%s" % exc})
+        size = os.path.getsize(dest)
+        print("[上传] %s（%.1f KB）→ temp" % (name, size / 1024.0))
+        return self._send(200, {"ok": True, "name": name, "size": size,
+                                "message": "上传成功：%s" % name})
+
+    # ---------- 识别：只接受 ./temp 下的文件名 ----------
+    def _predict(self):
         try:
             n = int(self.headers.get("Content-Length") or 0)
             req = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
-            path = (req.get("path") or "").strip().strip('"')
-            if not path:
-                return self._send(400, {"error": "请填写 zip 或 maidata.txt 的完整路径"})
-            path = os.path.expandvars(os.path.expanduser(path))
-            if not os.path.exists(path):
-                return self._send(400, {"error": "路径不存在: %s" % path})
+            names = req.get("files") or req.get("file") or []
+            if isinstance(names, str):
+                names = [names]
+            if not names and (req.get("path") or "").strip():
+                return self._send(400, {"error": "已改为上传模式：请在页面选择谱包上传（文件保存到 ./temp），再点击识别"})
+            try:
+                names = [safe_name(str(x)) for x in names]
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            names = [x for x in names if x][:int(req.get("limit") or 20)]
+            if not names:
+                return self._send(400, {"error": "请先上传谱包（.zip 或 maidata.txt），再点击识别"})
             specs = req.get("models") or STATE["specs"]
             alpha = req.get("alpha")
             alpha = float(alpha) if alpha not in (None, "") else None
             pred = get_predictor(specs, alpha)
-            diffs = _diffs_of(req)
+            diffs = req.get("diffs") or None
+            if isinstance(diffs, str):
+                diffs = [int(x) for x in diffs.replace(" ", "").split(",") if x.isdigit()] or None
             top = int(req.get("top") or 6)
-            limit = int(req.get("limit") or 20)
-            fuse, fq, ftop = _fuse_args(req)
-            files, is_batch = P.expand_targets(path, limit)
-            res = P.analyze_many([(fp, "path", fp) for fp in files], pred, diffs, top,
-                                 fuse=fuse, fuse_q=fq, fuse_top=ftop,
-                                 want_text=bool(req.get("showText", True)))
-            errs = res.get("errors") or []
-            if not res.get("ok"):
-                msg = errs[0]["error"] if errs else "该路径下没有可用的谱面（缺少 &inote_N= → E 区间）"
-                return self._send(400, {"error": msg, "errors": errs})
-            payload = {"ok": True, "batch": is_batch, "count": len(res["members"]),
-                       "members": res["members"], "fused": res["fused"],
-                       "errors": errs, "arch": res.get("arch"),
-                       "alpha": res.get("alpha"), "source": "path"}
-            if not is_batch and res["members"]:
-                payload["result"] = res["members"][0]   # 兼容单文件旧字段
+            paths = [os.path.join(TEMP, x) for x in names]
+            if not any(os.path.isfile(p) for p in paths):
+                return self._send(400, {"error": "上传的文件已不存在（可能已识别过被即刻清理），请重新上传后再识别"})
+            results = []
+            for fp in paths:
+                if not os.path.isfile(fp):
+                    results.append({"file": fp, "error": "文件不存在（已清理或未上传），请重新上传"})
+                    continue
+                rec = None
+                try:
+                    rec = P.analyze_file(fp, pred, diffs, top,
+                                         want_text=bool(req.get("showText", True)))
+                except Exception as exc:  # 单个坏包不影响整批
+                    results.append({"file": fp, "error": "%s: %s" % (type(exc).__name__, exc)})
+                    continue
+                finally:
+                    discard(fp)     # 该文件分析完成（无论成败）→ 即刻清理
+                if rec:
+                    results.append(rec)
+            if not results:
+                return self._send(400, {"error": "该文件下没有可用的谱面（缺少 &inote_N= → E 区间）"})
+            is_batch = len(paths) > 1
+            payload = {"ok": True, "batch": is_batch, "count": len(results), "results": results}
+            if not is_batch and results and "error" not in results[0]:
+                payload["result"] = results[0]   # 兼容单文件旧字段
             return self._send(200, payload)
         except FileNotFoundError as exc:
             return self._send(400, {"error": str(exc)})
@@ -232,15 +242,21 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--models", default=P.DEFAULT_MODELS)
     ap.add_argument("--alpha", type=float, default=None)
+    ap.add_argument("--max-upload-mb", type=float, default=200,
+                    help="单个上传文件大小上限（MB），默认 200")
     args = ap.parse_args()
 
     STATE["specs"] = args.models
     STATE["alpha"] = args.alpha
+    STATE["max_upload"] = int(args.max_upload_mb * 1024 * 1024)
+    os.makedirs(TEMP, exist_ok=True)
     try:
         get_predictor(args.models, args.alpha)
         print("模型已加载: %s" % args.models)
     except Exception as exc:
         print("警告：%s（界面仍会启动，但预测会报错）" % exc)
+
+    print("清理策略: 每份文件分析完成后即刻删除（%s）" % TEMP)
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print("界面已启动: http://%s:%d" % (args.host, args.port))

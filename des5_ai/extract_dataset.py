@@ -116,9 +116,10 @@ def parse_maidata(text: str) -> Tuple[Dict[str, str], List[Dict[str, Any]]]:
             if jbody.startswith("&"):
                 end = lines[j - 1][0] + len(lines[j - 1][1]) if j - 1 > i else start
                 break
+
             j += 1
         else:
-            end = len(lines[-1][0]) + len(lines[-1][1]) if lines else start
+            end = lines[-1][0] + len(lines[-1][1]) if lines else start
         n_lines = j - i - 1
         notes = text[start:end]
         if not notes.strip():

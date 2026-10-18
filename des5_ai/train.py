@@ -207,7 +207,11 @@ def main():
              ("  仅难度 %d" % args.diff_only) if args.diff_only else ""))
 
     mean = num[tr].mean(axis=0)
-    std = num[tr].std(axis=0) + 1e-6
+    std = num[tr].std(axis=0)
+    # 修复：若某特征在整个训练集中恒定不变（std=0），用很小的 epsilon 会让推理时
+    # 出现该特征值变化的样本产生巨大 z 值（如 (0-1)/1e-6 = -1e6），彻底淹没其他
+    # 特征。这里将退化特征的 std 置为 1.0，等价于不缩放，只保留均值偏移。
+    std = np.where(std < 1e-6, 1.0, std)
     cnt = np.bincount(y[tr], minlength=nc).astype(np.float32)
     prior = np.log((cnt + 1.0) / (cnt.sum() + nc)).astype(np.float32)
     cw = (1.0 / np.sqrt(cnt + 1.0)) if args.balanced else np.ones(nc, dtype=np.float32)

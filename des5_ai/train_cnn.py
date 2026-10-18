@@ -110,7 +110,10 @@ def main():
              ("  仅难度 %d" % args.diff_only) if args.diff_only else ""))
 
     mean = num[tr].mean(axis=0)
-    std = num[tr].std(axis=0) + 1e-6
+    std = num[tr].std(axis=0)
+    # 同 train.py：训练集中恒定不变的特征（std=0）若只加 epsilon，会在推理时对
+    # 该特征取值不同的样本产生巨大的 z 值，淹没其他特征。改用 1.0 避免此问题。
+    std = np.where(std < 1e-6, 1.0, std)
     cnt = np.bincount(y[tr], minlength=nc).astype(np.float32)
     prior = np.log((cnt + 1.0) / (cnt.sum() + nc)).astype(np.float32)
     cw = (1.0 / np.sqrt(cnt + 1.0))
